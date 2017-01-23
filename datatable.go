@@ -40,6 +40,22 @@ func (dt *DataTable) NumCol() int {
 	return dt.ncol
 }
 
+// CheckRow returns an error if row x does not exist.
+func (dt *DataTable) CheckRow(x int) error {
+	if x < 0 || x >= dt.nrow {
+		return IndexError
+	}
+	return nil
+}
+
+// CheckCol returns an error if column y does not exist.
+func (dt *DataTable) CheckCol(y int) error {
+	if y < 0 || y > dt.ncol {
+		return IndexError
+	}
+	return nil
+}
+
 // AppendRow appends a new row at the bottom of the table.
 func (dt *DataTable) AppendRow(row []string) error {
 	if len(row) != dt.ncol {
@@ -112,8 +128,21 @@ func (dt *DataTable) Slice(x, n int) (*DataTable, error) {
 // whether the two rows should be joined.
 // The join result is returned as a new data table.
 // Each joined rows contains all the fields from the input tables,
-// in the order of [left table fields ..., right table fields ...].
+// in the order of [left table fields ... right table fields ...].
 func Join(left, right *DataTable, fn func(l, r []string) bool) *DataTable {
+	return joinTables(left, right, fn, false)
+}
+
+// LeftJoin is similar to Join, execpt that every row from the left table
+// will be part of the join result even it doesn't join with any row from
+// the right table.
+// e.g., [left table fields ... empty fields]
+// where the empty fields have the same number of columns as the right table.
+func LeftJoin(left, right *DataTable, fn func(l, r []string) bool) *DataTable {
+	return joinTables(left, right, fn, true)
+}
+
+func joinTables(left, right *DataTable, fn func(l, r []string) bool, leftJoin bool) *DataTable {
 	out := make(chan []string)
 	go func() {
 		for i := 0; i < left.NumRow(); i++ {
@@ -123,6 +152,10 @@ func Join(left, right *DataTable, fn func(l, r []string) bool) *DataTable {
 				if fn(l, r) {
 					out <- append(l, r...)
 				}
+			}
+			if leftJoin {
+				r := make([]string, right.NumCol())
+				out <- append(l, r...)
 			}
 		}
 		close(out)
