@@ -14,21 +14,18 @@ var (
 // DataTable is an in-memory relational table.
 // The data values are immutable.
 type DataTable struct {
-	columns [][]string
-	nrow    int
-	ncol    int
+	rows [][]string
+	nrow int
+	ncol int
 }
 
 // NewDataTable creates a new data table with a given number of columns.
 func NewDataTable(ncol int) *DataTable {
-	columns := make([][]string, ncol)
-	for y := range columns {
-		columns[y] = make([]string, 0)
-	}
+	rows := make([][]string, 0)
 	return &DataTable{
-		columns: columns,
-		nrow:    0,
-		ncol:    ncol,
+		rows: rows,
+		nrow: 0,
+		ncol: ncol,
 	}
 }
 
@@ -61,22 +58,18 @@ func (dt *DataTable) AppendRow(row []string) error {
 	if len(row) != dt.ncol {
 		return NumColError
 	}
-	for x := range row {
-		dt.columns[x] = append(dt.columns[x], row[x])
-	}
+	dt.rows = append(dt.rows, row)
 	dt.nrow++
 	return nil
 }
 
 // GetRow returns the row at index x.
 func (dt *DataTable) GetRow(x int) ([]string, error) {
-	if x < 0 || x >= dt.nrow {
-		return nil, IndexError
+	if err := dt.CheckRow(x); err != nil {
+		return nil, err
 	}
 	row := make([]string, dt.ncol)
-	for y := 0; y < dt.ncol; y++ {
-		row[y] = dt.columns[y][x]
-	}
+	copy(row, dt.rows[x])
 	return row, nil
 }
 
@@ -86,11 +79,11 @@ func (dt *DataTable) GetRow(x int) ([]string, error) {
 // is the corresponding value.
 // Error is returned immediately if encountered.
 func (dt *DataTable) ApplyColumn(y int, fn func(int, string) error) error {
-	if y < 0 || y > dt.ncol {
-		return IndexError
+	if err := dt.CheckCol(y); err != nil {
+		return err
 	}
-	for x, v := range dt.columns[y] {
-		if err := fn(x, v); err != nil {
+	for x, row := range dt.rows {
+		if err := fn(x, row[y]); err != nil {
 			return err
 		}
 	}
@@ -110,16 +103,41 @@ func (dt *DataTable) Slice(x, n int) (*DataTable, error) {
 	if end >= dt.nrow {
 		end = dt.nrow
 	}
-	columns := make([][]string, dt.ncol)
-	for y := range columns {
-		columns[y] = dt.columns[y][x:end]
-	}
-	nrow := end - x
+	rows := dt.rows[x:end]
 	return &DataTable{
-		columns: columns,
-		nrow:    nrow,
-		ncol:    len(columns),
+		rows: rows,
+		nrow: len(rows),
+		ncol: dt.ncol,
 	}, nil
+}
+
+// Marshal data table into JSON.
+func (dt *DataTable) MarshalJSON() ([]byte, error) {
+	return json.Marshal(dt.rows)
+}
+
+// Unmarshal data table from JSON.
+func (dt *DataTable) UnmarshalJSON(data []byte) error {
+	var rows [][]string
+	if err := json.Unmarshal(data, &rows); err != nil {
+		return err
+	}
+	var nrow, ncol int
+	nrow = len(rows)
+	if nrow > 0 {
+		ncol = len(rows[0])
+		for x := range rows {
+			if len(rows[x]) != ncol {
+				return NumColError
+			}
+		}
+	}
+	dt = &DataTable{
+		rows: rows,
+		nrow: nrow,
+		ncol: ncol,
+	}
+	return nil
 }
 
 // Join performs relational join between the left and right tables.
@@ -165,33 +183,4 @@ func joinTables(left, right *DataTable, fn func(l, r []string) bool, leftJoin bo
 		joined.AppendRow(row)
 	}
 	return joined
-}
-
-// Marshal data table into JSON.
-func (dt *DataTable) MarshalJSON() ([]byte, error) {
-	return json.Marshal(dt.columns)
-}
-
-// Unmarshal data table from JSON.
-func (dt *DataTable) UnmarshalJSON(data []byte) error {
-	var columns [][]string
-	if err := json.Unmarshal(data, &columns); err != nil {
-		return err
-	}
-	var nrow, ncol int
-	ncol = len(columns)
-	if ncol > 0 {
-		nrow = len(columns[0])
-		for y := 0; y < ncol; y++ {
-			if len(columns[y]) != nrow {
-				return NumColError
-			}
-		}
-	}
-	dt = &DataTable{
-		columns: columns,
-		nrow:    nrow,
-		ncol:    ncol,
-	}
-	return nil
 }
