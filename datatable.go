@@ -148,19 +148,6 @@ func (dt *DataTable) UnmarshalJSON(data []byte) error {
 // Each joined rows contains all the fields from the input tables,
 // in the order of [left table fields ... right table fields ...].
 func Join(left, right *DataTable, fn func(l, r []string) bool) *DataTable {
-	return joinTables(left, right, fn, false)
-}
-
-// LeftJoin is similar to Join, execpt that every row from the left table
-// will be part of the join result even it doesn't join with any row from
-// the right table.
-// e.g., [left table fields ... empty fields]
-// where the empty fields have the same number of columns as the right table.
-func LeftJoin(left, right *DataTable, fn func(l, r []string) bool) *DataTable {
-	return joinTables(left, right, fn, true)
-}
-
-func joinTables(left, right *DataTable, fn func(l, r []string) bool, leftJoin bool) *DataTable {
 	out := make(chan []string)
 	go func() {
 		for i := 0; i < left.NumRow(); i++ {
@@ -171,7 +158,35 @@ func joinTables(left, right *DataTable, fn func(l, r []string) bool, leftJoin bo
 					out <- append(l, r...)
 				}
 			}
-			if leftJoin {
+		}
+		close(out)
+	}()
+	joined := NewDataTable(left.NumCol() + right.NumCol())
+	for row := range out {
+		joined.AppendRow(row)
+	}
+	return joined
+}
+
+// LeftJoin is similar to Join, execpt that every row from the left table
+// will be part of the join result even it doesn't join with any row from
+// the right table.
+// e.g., [left table fields ... empty fields]
+// where the empty fields have the same number of columns as the right table.
+func LeftJoin(left, right *DataTable, fn func(l, r []string) bool) *DataTable {
+	out := make(chan []string)
+	go func() {
+		for i := 0; i < left.NumRow(); i++ {
+			l, _ := left.GetRow(i)
+			var rowsJoined int
+			for j := 0; j < right.NumRow(); j++ {
+				r, _ := right.GetRow(j)
+				if fn(l, r) {
+					out <- append(l, r...)
+					rowsJoined++
+				}
+			}
+			if rowsJoined == 0 {
 				r := make([]string, right.NumCol())
 				out <- append(l, r...)
 			}
