@@ -199,3 +199,52 @@ func LeftJoin(left, right *DataTable, fn func(l, r []string) bool) *DataTable {
 	}
 	return joined
 }
+
+func HashJoin(left, right *DataTable, fnLeft, fnRight func([]string) string) *DataTable {
+	out := make(chan []string)
+	go func() {
+		defer close(out)
+		// Find relative sizes
+		var smaller, larger *DataTable
+		var fnSmall, fnLarge func([]string) string
+		var fnJoin func([]string, []string) []string
+		if left.NumRow() > right.NumRow() {
+			smaller, larger = right, left
+			fnSmall, fnLarge = fnRight, fnLeft
+			fnJoin = func(s, l []string) []string {
+				return append(l, s...)
+			}
+		} else {
+			smaller, larger = left, right
+			fnSmall, fnLarge = fnLeft, fnRight
+			fnJoin = func(s, l []string) []string {
+				return append(s, l...)
+			}
+		}
+		// Build map for the larger
+		ht := make(map[string][][]string)
+		for i := 0; i < larger.NumRow(); i++ {
+			row, _ := larger.GetRow(i)
+			key := fnLarge(row)
+			if _, exists := ht[key]; !exists {
+				ht[key] = make([][]string, 0)
+			}
+			ht[key] = append(ht[key], row)
+		}
+		// Perform join
+		for i := 0; i < smaller.NumRow(); i++ {
+			rowSmall, _ := smaller.GetRow(i)
+			key := fnSmall(rowSmall)
+			if bucket, exists := ht[key]; exists {
+				for _, rowLarge := range bucket {
+					out <- fnJoin(rowSmall, rowLarge)
+				}
+			}
+		}
+	}()
+	joined := NewDataTable(left.NumCol() + right.NumCol())
+	for row := range out {
+		joined.AppendRow(row)
+	}
+	return joined
+}
