@@ -6,9 +6,10 @@ import (
 )
 
 var (
-	IndexError  = errors.New("Index out of range")
-	ValueError  = errors.New("Incorrect argument value")
-	NumColError = errors.New("Incorrect number of columns")
+	ColIndexError = errors.New("Column index out of range")
+	RowIndexError = errors.New("Row index out of range")
+	ValueError    = errors.New("Incorrect argument value")
+	NumColError   = errors.New("Incorrect number of columns")
 )
 
 // DataTable is an in-memory relational table.
@@ -40,15 +41,15 @@ func (dt *DataTable) NumCol() int {
 // CheckRow returns an error if row x does not exist.
 func (dt *DataTable) CheckRow(x int) error {
 	if x < 0 || x >= dt.nrow {
-		return IndexError
+		return RowIndexError
 	}
 	return nil
 }
 
 // CheckCol returns an error if column y does not exist.
 func (dt *DataTable) CheckCol(y int) error {
-	if y < 0 || y > dt.ncol {
-		return IndexError
+	if y < 0 || y >= dt.ncol {
+		return ColIndexError
 	}
 	return nil
 }
@@ -94,7 +95,7 @@ func (dt *DataTable) ApplyColumn(y int, fn func(int, string) error) error {
 // and make a new data table from them.
 func (dt *DataTable) Slice(x, n int) (*DataTable, error) {
 	if x < 0 || x >= dt.nrow {
-		return nil, IndexError
+		return nil, RowIndexError
 	}
 	if n < 0 {
 		return nil, ValueError
