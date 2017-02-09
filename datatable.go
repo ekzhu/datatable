@@ -6,10 +6,11 @@ import (
 )
 
 var (
-	ColIndexError = errors.New("Column index out of range")
-	RowIndexError = errors.New("Row index out of range")
-	ValueError    = errors.New("Incorrect argument value")
-	NumColError   = errors.New("Incorrect number of columns")
+	ColIndexError  = errors.New("Column index out of range")
+	RowIndexError  = errors.New("Row index out of range")
+	ValueError     = errors.New("Incorrect argument value")
+	NumColError    = errors.New("Incorrect number of columns")
+	SingleColError = errors.New("Refuse to remove the last column")
 )
 
 // DataTable is an in-memory relational table.
@@ -88,6 +89,31 @@ func (dt *DataTable) ApplyColumn(y int, fn func(int, string) error) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// RemoveColumn deletes the column at index y
+func (dt *DataTable) RemoveColumn(y int) error {
+	if err := dt.CheckCol(y); err != nil {
+		return err
+	}
+	if dt.NumCol() == 1 {
+		return SingleColError
+	}
+	for x, row := range dt.rows {
+		dt.rows[x] = append(row[:y], row[y+1:]...)
+	}
+	dt.ncol--
+	return nil
+}
+
+// RemoveRow deletes the row at index x
+func (dt *DataTable) RemoveRow(x int) error {
+	if err := dt.CheckRow(x); err != nil {
+		return err
+	}
+	dt.rows = append(dt.rows[:x], dt.rows[x+1:]...)
+	dt.nrow--
 	return nil
 }
 

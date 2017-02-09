@@ -5,6 +5,13 @@ import (
 	"testing"
 )
 
+func printTable(dt *DataTable, t *testing.T) {
+	for i := 0; i < dt.NumRow(); i++ {
+		row, _ := dt.GetRow(i)
+		t.Log(row)
+	}
+}
+
 func Test_Create(t *testing.T) {
 	dt := NewDataTable(3)
 	dt.AppendRow([]string{"a", "b", "c"})
@@ -54,6 +61,85 @@ func Test_Slice(t *testing.T) {
 	if dt4.NumRow() != 1 {
 		t.Error(dt4.NumRow())
 	}
+}
+
+func Test_RemoveRow(t *testing.T) {
+	dt := NewDataTable(3)
+	dt.AppendRow([]string{"a", "b", "c"})
+	dt.AppendRow([]string{"e", "f", "g"})
+	dt.AppendRow([]string{"f", "k", "x"})
+	dt.AppendRow([]string{"g", "h", "l"})
+
+	err := dt.RemoveRow(1)
+	if err != nil {
+		t.Error(err)
+	}
+	if dt.NumRow() != 3 {
+		t.Fail()
+	}
+	printTable(dt, t)
+
+	err = dt.RemoveRow(0)
+	if err != nil {
+		t.Error(err)
+	}
+	if dt.NumRow() != 2 {
+		t.Fail()
+	}
+	printTable(dt, t)
+
+	dt = NewDataTable(3)
+	dt.AppendRow([]string{"a", "b", "c"})
+	dt.AppendRow([]string{"e", "f", "g"})
+	dt.AppendRow([]string{"f", "k", "x"})
+	dt.AppendRow([]string{"g", "h", "l"})
+
+	err = dt.RemoveRow(3)
+	if err != nil {
+		t.Error(err)
+	}
+	if dt.NumRow() != 3 {
+		t.Fail()
+	}
+	printTable(dt, t)
+}
+
+func Test_RemoveColumn(t *testing.T) {
+	dt := NewDataTable(3)
+	dt.AppendRow([]string{"a", "b", "c"})
+	dt.AppendRow([]string{"e", "f", "g"})
+	dt.AppendRow([]string{"f", "k", "x"})
+	dt.AppendRow([]string{"g", "h", "l"})
+
+	err := dt.RemoveColumn(1)
+	if err != nil {
+		t.Error(err)
+	}
+	if dt.NumCol() != 2 {
+		t.Fail()
+	}
+	printTable(dt, t)
+
+	err = dt.RemoveColumn(0)
+	if err != nil {
+		t.Error(err)
+	}
+	if dt.NumCol() != 1 {
+		t.Fail()
+	}
+	printTable(dt, t)
+
+	dt = NewDataTable(3)
+	dt.AppendRow([]string{"a", "b", "c"})
+	dt.AppendRow([]string{"e", "f", "g"})
+	dt.AppendRow([]string{"f", "k", "x"})
+	dt.AppendRow([]string{"g", "h", "l"})
+
+	err = dt.RemoveColumn(2)
+	if err != nil {
+		t.Error(err)
+	}
+	printTable(dt, t)
 }
 
 func Test_Join(t *testing.T) {
