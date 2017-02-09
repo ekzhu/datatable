@@ -1,8 +1,10 @@
 package datatable
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"io"
 )
 
 var (
@@ -163,6 +165,22 @@ func (dt *DataTable) UnmarshalJSON(data []byte) error {
 		rows: rows,
 		nrow: nrow,
 		ncol: ncol,
+	}
+	return nil
+}
+
+// ToCsv writes the table in standard CSV format to a file
+func (dt *DataTable) ToCsv(file io.Writer) error {
+	writer := csv.NewWriter(file)
+	for i := 0; i < dt.NumRow(); i++ {
+		row, _ := dt.GetRow(i)
+		if err := writer.Write(row); err != nil {
+			return err
+		}
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return err
 	}
 	return nil
 }
