@@ -8,9 +8,6 @@ import (
 )
 
 var (
-	ColIndexError  = errors.New("Column index out of range")
-	RowIndexError  = errors.New("Row index out of range")
-	ValueError     = errors.New("Incorrect argument value")
 	NumColError    = errors.New("Incorrect number of columns")
 	SingleColError = errors.New("Refuse to remove the last column")
 )
@@ -33,28 +30,14 @@ func NewDataTable(ncol int) *DataTable {
 	}
 }
 
+// NumRow returns the number of rows in the table
 func (dt *DataTable) NumRow() int {
 	return dt.nrow
 }
 
+// NumCol returns the number of columns in the table
 func (dt *DataTable) NumCol() int {
 	return dt.ncol
-}
-
-// CheckRow returns an error if row x does not exist.
-func (dt *DataTable) CheckRow(x int) error {
-	if x < 0 || x >= dt.nrow {
-		return RowIndexError
-	}
-	return nil
-}
-
-// CheckCol returns an error if column y does not exist.
-func (dt *DataTable) CheckCol(y int) error {
-	if y < 0 || y >= dt.ncol {
-		return ColIndexError
-	}
-	return nil
 }
 
 // AppendRow appends a new row at the bottom of the table.
@@ -67,25 +50,24 @@ func (dt *DataTable) AppendRow(row []string) error {
 	return nil
 }
 
+// Get returns the value at row x and column y.
+func (dt *DataTable) Get(x, y int) string {
+	return dt.rows[x][y]
+}
+
 // GetRow returns the row at index x.
-func (dt *DataTable) GetRow(x int) ([]string, error) {
-	if err := dt.CheckRow(x); err != nil {
-		return nil, err
-	}
+func (dt *DataTable) GetRow(x int) []string {
 	row := make([]string, dt.ncol)
 	copy(row, dt.rows[x])
-	return row, nil
+	return row
 }
 
 // ApplyColumn calls the function fn using all values in column y
-// from top to bottom.
-// fn takes two argument: the first is the row index and the second
+// from the first to the last row.
+// fn takes two arguments: the first is the row index and the second
 // is the corresponding value.
 // Error is returned immediately if encountered.
-func (dt *DataTable) ApplyColumn(y int, fn func(int, string) error) error {
-	if err := dt.CheckCol(y); err != nil {
-		return err
-	}
+func (dt *DataTable) ApplyColumn(fn func(int, string) error, y int) error {
 	for x, row := range dt.rows {
 		if err := fn(x, row[y]); err != nil {
 			return err
@@ -94,11 +76,26 @@ func (dt *DataTable) ApplyColumn(y int, fn func(int, string) error) error {
 	return nil
 }
 
+// ApplyColumns calls the function fn using all values in multiple columns
+// given by their indexes, from the first to the last row.
+// fn takes two arguments: the first is the row index and the second
+// is the corresponding row projected on the given columns.
+// Error is returned immediately if encountered.
+func (dt *DataTable) ApplyColumns(fn func(int, []string) error, ys ...int) error {
+	for x, row := range dt.rows {
+		row2 := make([]string, len(ys))
+		for y2, y := range ys {
+			row2[y2] = row[y]
+		}
+		if err := fn(x, row2); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // RemoveColumn deletes the column at index y
 func (dt *DataTable) RemoveColumn(y int) error {
-	if err := dt.CheckCol(y); err != nil {
-		return err
-	}
 	if dt.NumCol() == 1 {
 		return SingleColError
 	}
@@ -110,24 +107,33 @@ func (dt *DataTable) RemoveColumn(y int) error {
 }
 
 // RemoveRow deletes the row at index x
-func (dt *DataTable) RemoveRow(x int) error {
-	if err := dt.CheckRow(x); err != nil {
-		return err
-	}
+func (dt *DataTable) RemoveRow(x int) {
 	dt.rows = append(dt.rows[:x], dt.rows[x+1:]...)
 	dt.nrow--
-	return nil
+}
+
+// Project creates a new DataTable that has only a subset of
+// the columns, which are indicated by the given column indexes.
+func (dt *DataTable) Project(ys ...int) *DataTable {
+	dt2 := NewDataTable(len(ys))
+	for _, row := range dt.rows {
+		row2 := make([]string, len(ys))
+		for y2, y := range ys {
+			row2[y2] = row[y]
+		}
+		if err := dt2.AppendRow(row2); err != nil {
+			panic("Row data corrupted")
+		}
+	}
+	return dt2
 }
 
 // Slice take a contiguous subset of at most n rows, starting at index x,
-// and make a new data table from them.
-func (dt *DataTable) Slice(x, n int) (*DataTable, error) {
-	if x < 0 || x >= dt.nrow {
-		return nil, RowIndexError
-	}
-	if n < 0 {
-		return nil, ValueError
-	}
+// and make a new DataTable from them.
+// Note that different from Project, the new DataTable uses the underlying rows
+// of the original DataTable, and changes to the new table may affect
+// the original.
+func (dt *DataTable) Slice(x, n int) *DataTable {
 	end := x + n
 	if end >= dt.nrow {
 		end = dt.nrow
@@ -137,7 +143,7 @@ func (dt *DataTable) Slice(x, n int) (*DataTable, error) {
 		rows: rows,
 		nrow: len(rows),
 		ncol: dt.ncol,
-	}, nil
+	}
 }
 
 // Marshal data table into JSON.
@@ -173,7 +179,7 @@ func (dt *DataTable) UnmarshalJSON(data []byte) error {
 func (dt *DataTable) ToCsv(file io.Writer) error {
 	writer := csv.NewWriter(file)
 	for i := 0; i < dt.NumRow(); i++ {
-		row, _ := dt.GetRow(i)
+		row := dt.GetRow(i)
 		if err := writer.Write(row); err != nil {
 			return err
 		}
@@ -196,9 +202,9 @@ func Join(left, right *DataTable, fn func(l, r []string) bool) *DataTable {
 	out := make(chan []string)
 	go func() {
 		for i := 0; i < left.NumRow(); i++ {
-			l, _ := left.GetRow(i)
+			l := left.GetRow(i)
 			for j := 0; j < right.NumRow(); j++ {
-				r, _ := right.GetRow(j)
+				r := right.GetRow(j)
 				if fn(l, r) {
 					out <- append(l, r...)
 				}
@@ -222,10 +228,10 @@ func LeftJoin(left, right *DataTable, fn func(l, r []string) bool) *DataTable {
 	out := make(chan []string)
 	go func() {
 		for i := 0; i < left.NumRow(); i++ {
-			l, _ := left.GetRow(i)
+			l := left.GetRow(i)
 			var rowsJoined int
 			for j := 0; j < right.NumRow(); j++ {
-				r, _ := right.GetRow(j)
+				r := right.GetRow(j)
 				if fn(l, r) {
 					out <- append(l, r...)
 					rowsJoined++
@@ -245,6 +251,12 @@ func LeftJoin(left, right *DataTable, fn func(l, r []string) bool) *DataTable {
 	return joined
 }
 
+// HashJoin performs equal join on the two tables, and returns the result as
+// a new DataTable.
+// fnLeft and fnRight are functions that take a row as the input and return
+// the value used for equality condition in join.
+// HashJoin is generally faster than Join, which does nested loop join, but uses more
+// memory due to the temporary hash table.
 func HashJoin(left, right *DataTable, fnLeft, fnRight func([]string) string) *DataTable {
 	out := make(chan []string)
 	go func() {
@@ -269,7 +281,7 @@ func HashJoin(left, right *DataTable, fnLeft, fnRight func([]string) string) *Da
 		// Build map for the larger
 		ht := make(map[string][][]string)
 		for i := 0; i < larger.NumRow(); i++ {
-			row, _ := larger.GetRow(i)
+			row := larger.GetRow(i)
 			key := fnLarge(row)
 			if _, exists := ht[key]; !exists {
 				ht[key] = make([][]string, 0)
@@ -278,7 +290,7 @@ func HashJoin(left, right *DataTable, fnLeft, fnRight func([]string) string) *Da
 		}
 		// Perform join
 		for i := 0; i < smaller.NumRow(); i++ {
-			rowSmall, _ := smaller.GetRow(i)
+			rowSmall := smaller.GetRow(i)
 			key := fnSmall(rowSmall)
 			if bucket, exists := ht[key]; exists {
 				for _, rowLarge := range bucket {
