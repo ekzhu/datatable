@@ -54,7 +54,7 @@ func ExampleDataTable_Project() {
 	// Project on the first and the third column
 	dt2 := dt.Project(0, 2)
 
-	dt2.ToCsv(os.Stdout)
+	dt2.ToCSV(os.Stdout)
 	// Output:
 	// a,c
 	// e,g
@@ -72,7 +72,7 @@ func ExampleDataTable_Slice() {
 	// Take 2 rows starting at the row index 1
 	dt2 := dt.Slice(1, 2)
 
-	dt2.ToCsv(os.Stdout)
+	dt2.ToCSV(os.Stdout)
 	// Output:
 	// e,f,g
 	// f,k,x
@@ -95,7 +95,7 @@ func ExampleJoin() {
 		return l[0] == r[0]
 	})
 
-	dt3.ToCsv(os.Stdout)
+	dt3.ToCSV(os.Stdout)
 	// Output:
 	// a,b,c,a,1
 	// f,k,x,f,2
@@ -121,7 +121,7 @@ func ExampleHashJoin() {
 			return r[0]
 		})
 
-	dt3.ToCsv(os.Stdout)
+	dt3.ToCSV(os.Stdout)
 	// Output:
 	// a,b,c,a,1
 	// f,k,x,f,2

@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	NumColError    = errors.New("Incorrect number of columns")
-	SingleColError = errors.New("Refuse to remove the last column")
+	NumColError     = errors.New("Incorrect number of columns")
+	SingleColError  = errors.New("Refuse to remove the last column")
+	ErrEmptyCSVFile = errors.New("CSV file is empty")
 )
 
 // DataTable is an in-memory relational table.
@@ -184,8 +185,8 @@ func (dt *DataTable) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ToCsv writes the table in standard CSV format to a file
-func (dt *DataTable) ToCsv(file io.Writer) error {
+// ToCSV writes the table in standard CSV format to a file
+func (dt *DataTable) ToCSV(file io.Writer) error {
 	writer := csv.NewWriter(file)
 	for i := 0; i < dt.NumRow(); i++ {
 		row := dt.GetRow(i)
@@ -198,6 +199,25 @@ func (dt *DataTable) ToCsv(file io.Writer) error {
 		return err
 	}
 	return nil
+}
+
+// FromCSV reads data values from the CSV file and
+// initialize a datatable.
+func FromCSV(file *csv.Reader) (*DataTable, error) {
+	rows, err := file.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	nrow := len(rows)
+	if nrow == 0 {
+		return nil, ErrEmptyCSVFile
+	}
+	ncol := len(rows[0])
+	return &DataTable{
+		rows: rows,
+		nrow: nrow,
+		ncol: ncol,
+	}, nil
 }
 
 // Join performs relational join between the left and right tables.
