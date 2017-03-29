@@ -31,6 +31,9 @@ func Test_Create(t *testing.T) {
 	if row := dt.GetRow(1); row[0] != "e" {
 		t.Fail()
 	}
+	if col := dt.GetColumn(1); col[0] != "b" {
+		t.Fail()
+	}
 }
 
 func Test_Slice(t *testing.T) {

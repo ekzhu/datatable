@@ -62,6 +62,15 @@ func (dt *DataTable) GetRow(x int) []string {
 	return row
 }
 
+// GetColumn returns the column at index y.
+func (dt *DataTable) GetColumn(y int) []string {
+	col := make([]string, dt.nrow)
+	for x, row := range dt.rows {
+		col[x] = row[y]
+	}
+	return col
+}
+
 // ApplyColumn calls the function fn using all values in column y
 // from the first to the last row.
 // fn takes two arguments: the first is the row index and the second
