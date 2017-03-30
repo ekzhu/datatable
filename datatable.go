@@ -163,6 +163,9 @@ func (dt *DataTable) MarshalJSON() ([]byte, error) {
 
 // Unmarshal data table from JSON.
 func (dt *DataTable) UnmarshalJSON(data []byte) error {
+	if dt == nil {
+		return errors.New("datatable.DataTable: UnmarshalJSON on nil pointer")
+	}
 	var rows [][]string
 	if err := json.Unmarshal(data, &rows); err != nil {
 		return err
@@ -177,7 +180,7 @@ func (dt *DataTable) UnmarshalJSON(data []byte) error {
 			}
 		}
 	}
-	dt = &DataTable{
+	*dt = DataTable{
 		rows: rows,
 		nrow: nrow,
 		ncol: ncol,

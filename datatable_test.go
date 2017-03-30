@@ -2,6 +2,7 @@ package datatable
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 )
 
@@ -225,4 +226,22 @@ func Test_MarshalJSON(t *testing.T) {
 	if err := json.Unmarshal(data, &dt2); err != nil {
 		t.Error(err)
 	}
+	dt2.ToCSV(os.Stdout)
+
+	type testStruct struct {
+		Table *DataTable `json:"table"`
+	}
+	s := &testStruct{
+		Table: dt,
+	}
+	data, err = json.Marshal(s)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(string(data))
+	var s2 testStruct
+	if err := json.Unmarshal(data, &s2); err != nil {
+		t.Error(err)
+	}
+	t.Log(s2.Table)
 }
