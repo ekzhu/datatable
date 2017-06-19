@@ -8,9 +8,12 @@ import (
 )
 
 var (
-	NumColError     = errors.New("Incorrect number of columns")
-	SingleColError  = errors.New("Refuse to remove the last column")
-	ErrEmptyCSVFile = errors.New("CSV file is empty")
+	// errNumCol is used when number of column is incorrect in the input
+	errNumCol     = errors.New("Incorrect number of columns")
+	// errSingleCol is when caller attempts to remove the last column
+	errSingleCol  = errors.New("Refuse to remove the last column")
+	// errEmptyCSVFile is when the CSV file to load is empty
+	errEmptyCSVFile = errors.New("CSV file is empty")
 )
 
 // DataTable is an in-memory relational table.
@@ -44,7 +47,7 @@ func (dt *DataTable) NumCol() int {
 // AppendRow appends a new row at the bottom of the table.
 func (dt *DataTable) AppendRow(row []string) error {
 	if len(row) != dt.ncol {
-		return NumColError
+		return errNumCol
 	}
 	dt.rows = append(dt.rows, row)
 	dt.nrow++
@@ -107,7 +110,7 @@ func (dt *DataTable) ApplyColumns(fn func(int, []string) error, ys ...int) error
 // RemoveColumn deletes the column at index y
 func (dt *DataTable) RemoveColumn(y int) error {
 	if dt.NumCol() == 1 {
-		return SingleColError
+		return errSingleCol
 	}
 	for x, row := range dt.rows {
 		dt.rows[x] = append(row[:y], row[y+1:]...)
@@ -156,12 +159,30 @@ func (dt *DataTable) Slice(x, n int) *DataTable {
 	}
 }
 
-// Marshal data table into JSON.
+// Merge takes another DataTable dt2 and the 1-to-1 mapping from
+// this table's column indexes to dt2's column indexes,
+// then append new rows to this table with values from dt2.
+func (dt *DataTable) Merge(dt2 *DataTable, matches map[int]int) {
+	for x2 := 0; x2 < dt2.NumRow(); x2++ {
+		row2 := dt2.GetRow(x2)
+		row1 := make([]string, dt.NumCol())
+		for y1 := range row1 {
+			if y2, exists := matches[y1]; exists {
+				row1[y1] = row2[y2]
+			}
+		}
+		if err := dt.AppendRow(row1); err != nil {
+			panic("Row data corrupted")
+		}
+	}
+}
+
+// MarshalJSON marshals data table into JSON.
 func (dt *DataTable) MarshalJSON() ([]byte, error) {
 	return json.Marshal(dt.rows)
 }
 
-// Unmarshal data table from JSON.
+// UnmarshalJSON parses data table from JSON.
 func (dt *DataTable) UnmarshalJSON(data []byte) error {
 	if dt == nil {
 		return errors.New("datatable.DataTable: UnmarshalJSON on nil pointer")
@@ -176,7 +197,7 @@ func (dt *DataTable) UnmarshalJSON(data []byte) error {
 		ncol = len(rows[0])
 		for x := range rows {
 			if len(rows[x]) != ncol {
-				return NumColError
+				return errNumCol
 			}
 		}
 	}
@@ -213,7 +234,7 @@ func FromCSV(file *csv.Reader) (*DataTable, error) {
 	}
 	nrow := len(rows)
 	if nrow == 0 {
-		return nil, ErrEmptyCSVFile
+		return nil, errEmptyCSVFile
 	}
 	ncol := len(rows[0])
 	return &DataTable{

@@ -26,7 +26,7 @@ func Test_Create(t *testing.T) {
 	if dt.Get(0, 2) != "c" {
 		t.Fail()
 	}
-	if err := dt.AppendRow([]string{"1", "2"}); err != NumColError {
+	if err := dt.AppendRow([]string{"1", "2"}); err != errNumCol {
 		t.Error(err)
 	}
 	if row := dt.GetRow(1); row[0] != "e" {
@@ -85,6 +85,29 @@ func Test_Project(t *testing.T) {
 		t.Error(dt2.NumCol())
 	}
 }
+
+func Test_Merge(t *testing.T) {
+	dt := NewDataTable(4)
+	dt.AppendRow([]string{"a", "b", "c", "e"})
+	dt.AppendRow([]string{"e", "f", "g", "z"})
+	dt.AppendRow([]string{"f", "k", "x", "y"})
+	dt.AppendRow([]string{"g", "h", "l", "w"})
+
+	dt2 := NewDataTable(3)
+	dt2.AppendRow([]string{"a", "b", "c"})
+	dt2.AppendRow([]string{"e", "f", "g"})
+	dt2.AppendRow([]string{"f", "k", "x"})
+	dt2.AppendRow([]string{"g", "h", "l"})
+
+	dt.Merge(dt2, map[int]int{
+		0 : 0,
+		1 : 2,
+		2 : 1,
+	})
+
+	printTable(dt, t)
+}
+
 
 func Test_RemoveRow(t *testing.T) {
 	dt := NewDataTable(3)
